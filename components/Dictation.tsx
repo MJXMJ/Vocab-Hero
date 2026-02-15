@@ -258,7 +258,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
 
             const chunk = chunks[ci];
             const wordCount = chunk.split(/\s+/).length;
-            const writingTime = Math.max(5, 5 + wordCount * 2);
+            const writingTime = Math.max(3, 3 + wordCount * 0.5);
 
             for (let rep = 0; rep < 3; rep++) {
                 if (abortRef.current) return;

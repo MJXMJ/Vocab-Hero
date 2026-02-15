@@ -133,9 +133,11 @@ const App: React.FC = () => {
     setView('upload');
   };
 
-  // Skip to Stage 2 with sample paragraph (testing only)
+  // Skip to Stage 2 — use OCR paragraph if available, sample only for testing
   const skipToStage2 = () => {
-    setDictationParagraph(SAMPLE_DICTATION);
+    if (!dictationParagraph) {
+      setDictationParagraph(SAMPLE_DICTATION);
+    }
     setView('stage2');
   };
 
