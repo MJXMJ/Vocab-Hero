@@ -154,11 +154,14 @@ async function speakText(text: string, rate = 0.8): Promise<void> {
         u.rate = rate;
         u.pitch = 1.0;
         u.volume = 1.0;
-        const preferred = voices.find(v => v.lang === 'en-GB' && (v.name.includes('Daniel') || v.name.includes('Google') || v.name.includes('Natural')));
-        const gbFallback = voices.find(v => v.lang === 'en-GB');
+        // Prefer female British English voices
+        const preferred = voices.find(v => v.lang === 'en-GB' && (v.name.includes('Kate') || v.name.includes('Serena') || v.name.includes('Martha') || v.name.includes('Google UK English Female')));
+        const gbFallback = voices.find(v => v.lang === 'en-GB' && !v.name.includes('Daniel'));
+        const anyGB = voices.find(v => v.lang === 'en-GB');
         const anyEn = voices.find(v => v.lang.startsWith('en-'));
         if (preferred) u.voice = preferred;
         else if (gbFallback) u.voice = gbFallback;
+        else if (anyGB) u.voice = anyGB;
         else if (anyEn) u.voice = anyEn;
         u.onend = () => resolve();
         u.onerror = () => resolve();

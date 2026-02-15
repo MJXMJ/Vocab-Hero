@@ -270,13 +270,6 @@ const App: React.FC = () => {
                 )}
               </div>
 
-              {/* Skip to Stage 2 — for users who completed Stage 1 before */}
-              <button
-                onClick={skipToStage2}
-                className="mt-4 bg-purple-100 text-purple-600 font-bold px-6 py-2 rounded-full border-2 border-purple-200 hover:bg-purple-200 hover:scale-105 transition-all text-sm shadow-md"
-              >
-                ⏭ SKIP TO STAGE 2 — DICTATION
-              </button>
             </div>
           )}
 
@@ -307,6 +300,18 @@ const App: React.FC = () => {
                   onCross={() => handleDecision(false)}
                 />
               </div>
+
+              {/* Skip to Stage 2 — only when dictation was detected */}
+              {dictationParagraph && (
+                <div className="flex-shrink-0 text-center py-2">
+                  <button
+                    onClick={skipToStage2}
+                    className="bg-purple-100 text-purple-600 font-bold px-6 py-2 rounded-full border-2 border-purple-200 hover:bg-purple-200 hover:scale-105 transition-all text-sm shadow-md"
+                  >
+                    ⏭ SKIP TO STAGE 2 — DICTATION
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
