@@ -8,19 +8,23 @@ export const config = {
     },
 };
 
-const PROMPT = `You are an expert at reading text from images. 
+const PROMPT = `You are an expert at reading text from images.
 
 STEP 1: Carefully read and transcribe ALL visible text from this image.
 
-STEP 2: From the transcribed text, identify up to 15 vocabulary words that would be challenging or educational for a child aged 8-14. Only select words that ACTUALLY APPEAR in the image.
+STEP 2: Check if the image contains a section headed "Dictation" (or "Dictation Passage", "Dictation Test", etc.). If found, extract the FULL paragraph text below that heading VERBATIM — preserve exact wording, punctuation, and capitalization.
 
-Return ONLY a valid JSON array where each element has:
-- "word": The exact word (correct spelling)
-- "definition": A simple, child-friendly definition
-- "example": A fun example sentence
-- "difficulty": "Heroic" (medium), "Legendary" (hard), or "Epic" (expert)
+STEP 3: From the transcribed text (excluding the dictation paragraph), identify up to 15 vocabulary words that would be challenging or educational for a child aged 8-14. Only select words that ACTUALLY APPEAR in the image.
 
-Do NOT add words not visible in the image. Return ONLY the JSON array, no other text.`;
+Return ONLY a valid JSON object with this structure:
+{
+  "words": [
+    { "word": "...", "definition": "...", "example": "...", "difficulty": "Heroic|Legendary|Epic" }
+  ],
+  "dictationParagraph": "The full dictation paragraph text here" OR null if no dictation section found
+}
+
+Do NOT add words not visible in the image. Return ONLY the JSON object, no other text.`;
 
 async function callGemini(model: string, apiKey: string, base64: string, mimeType: string) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -64,8 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Missing image data' });
         }
 
-        // Try models in order — gemini-2.5-flash has the best vision quality,
-        // fall back to lighter models if rate-limited
+        // Try models in order
         const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite-001'];
         let lastError = '';
 
@@ -74,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (geminiResponse.ok) {
                 const result = await geminiResponse.json();
-                const textContent = result?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+                const textContent = result?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
                 let cleaned = textContent.trim();
                 if (cleaned.startsWith('```')) {
@@ -82,7 +85,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const data = JSON.parse(cleaned);
-                const words = (Array.isArray(data) ? data : []).map((item: any, index: number) => ({
+
+                // Handle both old format (array) and new format (object with words + dictation)
+                let wordsArray: any[];
+                let dictationParagraph: string | null = null;
+
+                if (Array.isArray(data)) {
+                    // Old format: just an array of words
+                    wordsArray = data;
+                } else {
+                    // New format: { words: [...], dictationParagraph: "..." }
+                    wordsArray = data.words || [];
+                    dictationParagraph = data.dictationParagraph || null;
+                }
+
+                const words = wordsArray.map((item: any, index: number) => ({
                     word: item.word || '',
                     definition: item.definition || '',
                     example: item.example || '',
@@ -91,7 +108,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     mastered: false,
                 }));
 
-                return res.status(200).json({ words, model });
+                return res.status(200).json({ words, dictationParagraph, model });
             }
 
             // Model failed — log and try next
@@ -99,16 +116,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             lastError = `${model}: ${geminiResponse.status} - ${errBody.substring(0, 300)}`;
             console.error(`Gemini ${model} failed:`, geminiResponse.status, errBody.substring(0, 500));
 
-            // If it's NOT a rate limit or availability error, don't bother retrying
             if (geminiResponse.status !== 429 && geminiResponse.status !== 503) {
-                // Return the actual error for debugging
                 return res.status(geminiResponse.status).json({
                     error: `Gemini error: ${errBody.substring(0, 200)}`
                 });
             }
         }
 
-        // All models failed with rate limits
         return res.status(429).json({
             error: `All models rate-limited. Last error: ${lastError.substring(0, 200)}. Wait 1 minute and try again.`
         });
