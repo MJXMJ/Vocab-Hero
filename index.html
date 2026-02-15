@@ -28,6 +28,7 @@
         .flip-card-inner {
             transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
             transform-style: preserve-3d;
+            -webkit-transform-style: preserve-3d;
         }
 
         .flip-card-flipped {
@@ -42,10 +43,24 @@
             width: 100%;
             height: 100%;
             border-radius: 2rem;
+            /* Safari fallback: also use z-index toggling */
+            z-index: 1;
         }
 
         .flip-card-back {
             transform: rotateY(180deg);
+            -webkit-transform: rotateY(180deg);
+            z-index: 0;
+        }
+
+        /* Safari extra protection: hide via visibility when flipped */
+        .flip-card-flipped .flip-card-front {
+            visibility: hidden;
+            pointer-events: none;
+        }
+
+        .flip-card-flipped .flip-card-back {
+            z-index: 2;
         }
 
         /* Hero Reward Animations */

@@ -55,6 +55,8 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
 
   const timerRef = useRef<number | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const masteredRef = useRef<HTMLButtonElement | null>(null);
 
   const playBeep = (freq: number, duration: number) => {
     if (!audioCtxRef.current) audioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -102,14 +104,29 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
     }
 
     setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      // Auto-focus the input field after speaking
+      setTimeout(() => inputRef.current?.focus(), 100);
+    };
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setTimeout(() => inputRef.current?.focus(), 100);
+    };
 
     window.speechSynthesis.speak(utterance);
   };
 
   const handlePronounce = (e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
+    speakWithWebSpeechAPI(card.word);
+    if (!isTimerActive && timeLeft === 20) {
+      setIsTimerActive(true);
+    }
+  };
+
+  // Keyboard-triggered speak (no event object)
+  const handlePronounceKeyboard = () => {
     speakWithWebSpeechAPI(card.word);
     if (!isTimerActive && timeLeft === 20) {
       setIsTimerActive(true);
@@ -175,14 +192,31 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
         playSuccessSound();
         setTimeout(() => setShowConfetti(false), 3000);
       }
+      // Auto-focus the mastered button after flip
+      setTimeout(() => masteredRef.current?.focus(), 300);
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
+      e.preventDefault();
       handleReveal();
     }
   };
+
+  // Global keyboard handler for spacebar (speak) and enter (when flipped, mastered)
+  useEffect(() => {
+    const handleGlobalKeyDown = (e: KeyboardEvent) => {
+      // Spacebar: speak the word (only when not typing in input)
+      if (e.code === 'Space' && !isFlipped && document.activeElement !== inputRef.current) {
+        e.preventDefault();
+        handlePronounceKeyboard();
+      }
+    };
+
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [isFlipped, isTimerActive, timeLeft, card.word]);
 
   const resetLocalCardState = () => {
     setIsFlipped(false);
@@ -203,6 +237,14 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
     e.stopPropagation();
     onCross();
     resetLocalCardState();
+  };
+
+  // Handle mastered button via keyboard (Enter when focused)
+  const handleMasteredKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      onCheck();
+    }
   };
 
   useEffect(() => {
@@ -249,14 +291,14 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
               <button
                 onClick={handlePronounce}
                 className={`w-16 h-16 sm:w-20 sm:h-20 bg-white rounded-full flex items-center justify-center shadow-lg hover:scale-110 active:scale-95 transition-transform ${isSpeaking ? 'ring-4 ring-yellow-400 animate-pulse' : isTimerActive ? 'ring-4 ring-yellow-400' : ''}`}
-                title="Hear Word"
+                title="Hear Word (or press Spacebar)"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-8 w-8 sm:h-10 sm:w-10 ${isSpeaking ? 'text-yellow-500' : isTimerActive ? 'text-yellow-500' : 'text-pink-500'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.536 8.464a5 5 0 010 7.072M17.95 6.05a8 8 0 010 11.9M6.5 8.8L10.2 5.1a.7.7 0 011.2.5v12.8a.7.7 0 01-1.2.5L6.5 15.2H4a1 1 0 01-1-1v-4.4a1 1 0 011-1h2.5z" />
                 </svg>
               </button>
               <p className="text-white hero-font text-base sm:text-lg tracking-widest">
-                {isSpeaking ? '🔊 SPEAKING...' : isTimerActive ? `⏱ ${timeLeft}s` : '🔊 TAP TO HEAR'}
+                {isSpeaking ? '🔊 SPEAKING...' : isTimerActive ? `⏱ ${timeLeft}s` : '🔊 SPACE TO HEAR'}
               </p>
             </div>
 
@@ -269,8 +311,9 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
               </div>
 
               <input
+                ref={inputRef}
                 type="text"
-                placeholder={isTimerActive || timeLeft < 20 ? "Type the word... ✍️" : "Hear word first! 👆"}
+                placeholder={isTimerActive || timeLeft < 20 ? "Type the word... ✍️" : "Press SPACE to hear! 👆"}
                 value={userSpelling}
                 autoComplete="off"
                 disabled={timeLeft === 0 || isFlipped}
@@ -278,7 +321,6 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
                 onKeyDown={handleKeyDown}
                 onChange={(e) => setUserSpelling(e.target.value)}
                 className={`w-full bg-white/20 border-2 rounded-xl px-4 py-2.5 text-white text-center font-bold text-sm focus:outline-none transition-all placeholder-white/50 backdrop-blur-sm ${isTimerActive ? 'border-yellow-400 ring-2 ring-yellow-400/30' : 'border-white/40'}`}
-                autoFocus
               />
               <p className="text-white/70 font-bold uppercase text-[10px] text-center tracking-widest group-hover:text-white">
                 {timeLeft === 0 ? "⏰ TAP TO REVEAL!" : "ENTER TO CHECK ✨"}
@@ -365,13 +407,23 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
             <span className="hero-font text-base">TRY AGAIN</span>
           </button>
           <button
+            ref={masteredRef}
             onClick={onCheck}
-            className={`flex-1 border-4 border-white text-white rounded-xl py-3 flex flex-col items-center justify-center shadow-lg transition-all active:scale-95 hover:scale-105 ${isCorrect ? 'bg-gradient-to-r from-green-400 to-green-500 animate-pulse' : 'bg-gradient-to-r from-blue-400 to-pink-400'}`}
+            onKeyDown={handleMasteredKeyDown}
+            className={`flex-1 border-4 border-white text-white rounded-xl py-3 flex flex-col items-center justify-center shadow-lg transition-all active:scale-95 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-300 ${isCorrect ? 'bg-gradient-to-r from-green-400 to-green-500 animate-pulse' : 'bg-gradient-to-r from-blue-400 to-pink-400'}`}
           >
             <span className="text-xl">{isCorrect ? '🎉' : '👍'}</span>
             <span className="hero-font text-base">MASTERED!</span>
+            <span className="text-[9px] text-white/70 font-bold mt-0.5">ENTER ↵</span>
           </button>
         </div>
+      )}
+
+      {/* Keyboard hint */}
+      {!isFlipped && (
+        <p className="text-gray-400 text-[10px] font-bold text-center tracking-wider">
+          ⌨️ SPACE = hear · TYPE = spell · ENTER = check
+        </p>
       )}
     </div>
   );
