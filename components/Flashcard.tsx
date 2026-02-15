@@ -101,12 +101,16 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
     const gbVoices = voices.filter(v => v.lang === 'en-GB');
     const preferred = gbVoices.find(v => FEMALE_NAMES.some(n => v.name.includes(n)));
     const gbFemale = gbVoices.find(v => !MALE_NAMES.some(n => v.name.includes(n)));
+    // iOS fallback: Daniel is often the ONLY en-GB voice on iPhone
+    const iosFemale = voices.find(v => v.name === 'Moira') || voices.find(v => v.name === 'Karen');
     const anyGB = gbVoices[0];
     const fallbackEn = voices.find(v => v.lang.startsWith('en-'));
     if (preferred) {
       utterance.voice = preferred;
     } else if (gbFemale) {
       utterance.voice = gbFemale;
+    } else if (iosFemale) {
+      utterance.voice = iosFemale;
     } else if (anyGB) {
       utterance.voice = anyGB;
     } else if (fallbackEn) {

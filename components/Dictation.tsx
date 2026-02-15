@@ -160,10 +160,14 @@ async function speakText(text: string, rate = 0.8): Promise<void> {
         const gbVoices = voices.filter(v => v.lang === 'en-GB');
         const preferred = gbVoices.find(v => FEMALE_NAMES.some(n => v.name.includes(n)));
         const gbFemale = gbVoices.find(v => !MALE_NAMES.some(n => v.name.includes(n)));
+        // iOS fallback: Daniel is often the ONLY en-GB voice on iPhone
+        // Use Moira (Irish) or Karen (Australian) as female English alternatives
+        const iosFemale = voices.find(v => v.name === 'Moira') || voices.find(v => v.name === 'Karen');
         const anyGB = gbVoices[0];
         const anyEn = voices.find(v => v.lang.startsWith('en-'));
         if (preferred) u.voice = preferred;
         else if (gbFemale) u.voice = gbFemale;
+        else if (iosFemale) u.voice = iosFemale;
         else if (anyGB) u.voice = anyGB;
         else if (anyEn) u.voice = anyEn;
         u.onend = () => resolve();
