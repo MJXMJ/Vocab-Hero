@@ -154,13 +154,16 @@ async function speakText(text: string, rate = 0.8): Promise<void> {
         u.rate = rate;
         u.pitch = 1.0;
         u.volume = 1.0;
-        // Prefer female British English voices
-        const preferred = voices.find(v => v.lang === 'en-GB' && (v.name.includes('Kate') || v.name.includes('Serena') || v.name.includes('Martha') || v.name.includes('Google UK English Female')));
-        const gbFallback = voices.find(v => v.lang === 'en-GB' && !v.name.includes('Daniel'));
-        const anyGB = voices.find(v => v.lang === 'en-GB');
+        // Female British English voices — actual names from macOS/Chrome
+        const FEMALE_NAMES = ['Flo', 'Sandy', 'Shelley', 'Kate', 'Serena', 'Martha', 'Grandma', 'Google UK English Female'];
+        const MALE_NAMES = ['Daniel', 'Eddy', 'Reed', 'Rocko', 'Grandpa', 'Google UK English Male'];
+        const gbVoices = voices.filter(v => v.lang === 'en-GB');
+        const preferred = gbVoices.find(v => FEMALE_NAMES.some(n => v.name.includes(n)));
+        const gbFemale = gbVoices.find(v => !MALE_NAMES.some(n => v.name.includes(n)));
+        const anyGB = gbVoices[0];
         const anyEn = voices.find(v => v.lang.startsWith('en-'));
         if (preferred) u.voice = preferred;
-        else if (gbFallback) u.voice = gbFallback;
+        else if (gbFemale) u.voice = gbFemale;
         else if (anyGB) u.voice = anyGB;
         else if (anyEn) u.voice = anyEn;
         u.onend = () => resolve();
