@@ -8,19 +8,35 @@ export const config = {
     },
 };
 
-const PROMPT = `You are an expert at reading text from images. 
+const PROMPT = `You are an expert at reading text from images. Follow these steps VERY carefully:
 
-STEP 1: Carefully read and transcribe ALL visible text from this image.
+STEP 1 — FULL TRANSCRIPTION:
+Read and transcribe EVERY word visible in this image. Do not skip anything.
 
-STEP 2: From the transcribed text, identify up to 15 vocabulary words that would be challenging or educational for a child aged 8-14. Only select words that ACTUALLY APPEAR in the image.
+STEP 2 — DICTATION DETECTION:
+Search the transcribed text for the word "Dictation" (case-insensitive). It might appear as:
+- A heading like "Dictation", "Dictation:", "Dictation Passage", "Dictation Test"
+- A label or title anywhere on the page
+- Part of a numbered section like "3. Dictation"
 
-Return ONLY a valid JSON array where each element has:
-- "word": The exact word (correct spelling)
-- "definition": A simple, child-friendly definition
-- "example": A fun example sentence
-- "difficulty": "Heroic" (medium), "Legendary" (hard), or "Epic" (expert)
+If you find the word "Dictation" anywhere, extract ALL the text that comes AFTER it as the dictation paragraph. Copy it EXACTLY — preserve every word, space, capital letter, and punctuation mark (periods, commas, question marks, exclamation marks, etc.).
 
-Do NOT add words not visible in the image. Return ONLY the JSON array, no other text.`;
+STEP 3 — VOCABULARY:
+From the remaining text (excluding the dictation paragraph), pick up to 15 challenging vocabulary words for a child aged 8-14. Only use words ACTUALLY visible in the image.
+
+Return ONLY a valid JSON object — no markdown, no backticks, no explanation:
+{
+  "words": [
+    { "word": "example", "definition": "a simple definition", "example": "a fun sentence", "difficulty": "Heroic" }
+  ],
+  "dictationParagraph": "Exact paragraph text here with all punctuation preserved."
+}
+
+IMPORTANT:
+- If NO dictation section is found, set "dictationParagraph" to null (the JSON keyword, not the string "null").
+- If a dictation section IS found, copy it VERBATIM — every comma, period, and capital letter matters.
+- The "words" array can be empty [] if no suitable vocabulary words are found.
+- Do NOT invent text that is not in the image.`;
 
 async function callGemini(model: string, apiKey: string, base64: string, mimeType: string) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -64,8 +80,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             return res.status(400).json({ error: 'Missing image data' });
         }
 
-        // Try models in order — gemini-2.5-flash has the best vision quality,
-        // fall back to lighter models if rate-limited
+        // Try models in order
         const models = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-2.0-flash-lite-001'];
         let lastError = '';
 
@@ -74,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
             if (geminiResponse.ok) {
                 const result = await geminiResponse.json();
-                const textContent = result?.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+                const textContent = result?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
                 let cleaned = textContent.trim();
                 if (cleaned.startsWith('```')) {
@@ -82,7 +97,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 }
 
                 const data = JSON.parse(cleaned);
-                const words = (Array.isArray(data) ? data : []).map((item: any, index: number) => ({
+
+                // Handle both old format (array) and new format (object with words + dictation)
+                let wordsArray: any[];
+                let dictationParagraph: string | null = null;
+
+                if (Array.isArray(data)) {
+                    // Old format: just an array of words
+                    wordsArray = data;
+                } else {
+                    // New format: { words: [...], dictationParagraph: "..." }
+                    wordsArray = data.words || [];
+                    dictationParagraph = data.dictationParagraph || null;
+                }
+
+                const words = wordsArray.map((item: any, index: number) => ({
                     word: item.word || '',
                     definition: item.definition || '',
                     example: item.example || '',
@@ -91,7 +120,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     mastered: false,
                 }));
 
-                return res.status(200).json({ words, model });
+                return res.status(200).json({ words, dictationParagraph, model });
             }
 
             // Model failed — log and try next
@@ -99,16 +128,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
             lastError = `${model}: ${geminiResponse.status} - ${errBody.substring(0, 300)}`;
             console.error(`Gemini ${model} failed:`, geminiResponse.status, errBody.substring(0, 500));
 
-            // If it's NOT a rate limit or availability error, don't bother retrying
             if (geminiResponse.status !== 429 && geminiResponse.status !== 503) {
-                // Return the actual error for debugging
                 return res.status(geminiResponse.status).json({
                     error: `Gemini error: ${errBody.substring(0, 200)}`
                 });
             }
         }
 
-        // All models failed with rate limits
         return res.status(429).json({
             error: `All models rate-limited. Last error: ${lastError.substring(0, 200)}. Wait 1 minute and try again.`
         });

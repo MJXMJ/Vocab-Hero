@@ -14,7 +14,24 @@ export interface SessionStats {
   total: number;
 }
 
-export type AppView = 'upload' | 'game' | 'results';
+export type AppView = 'upload' | 'game' | 'stage1-results' | 'stage2' | 'stage2-results' | 'mastery' | 'results';
+
+export interface DiffSegment {
+  text: string;
+  type: 'correct' | 'wrong' | 'missing';
+}
+
+export interface DictationState {
+  paragraph: string;
+  chunks: string[];
+  currentChunkIndex: number;
+  isPaused: boolean;
+  isPlaying: boolean;
+  userInput: string;
+  diffResult: DiffSegment[] | null;
+  score: number | null;
+  attempts: number;
+}
 
 export interface ChatMessage {
   role: 'user' | 'model';

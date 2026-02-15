@@ -2,6 +2,9 @@
 import React, { useState } from 'react';
 import { VocabWord, AppView, SessionStats } from './types';
 import { Flashcard } from './components/Flashcard';
+import { Dictation } from './components/Dictation';
+
+const SAMPLE_DICTATION = "The brave explorer climbed the steep mountain, carrying a heavy backpack filled with supplies. When she reached the summit, she could see the entire valley below, stretching out like a beautiful green carpet. The wind was cold but the view was absolutely magnificent.";
 
 const App: React.FC = () => {
   const [view, setView] = useState<AppView>('upload');
@@ -15,13 +18,16 @@ const App: React.FC = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  // Stage 2 — Dictation
+  const [dictationParagraph, setDictationParagraph] = useState<string | null>(null);
+  const [dictationScore, setDictationScore] = useState<number | null>(null);
+
   // Compress image to max 1600px and convert to JPEG for smaller payload
   const compressImage = (file: File, maxDim: number = 1600): Promise<{ base64: string; mimeType: string }> => {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
         let { width, height } = img;
-        // Scale down if needed
         if (width > maxDim || height > maxDim) {
           const ratio = Math.min(maxDim / width, maxDim / height);
           width = Math.round(width * ratio);
@@ -58,7 +64,6 @@ const App: React.FC = () => {
     try {
       const { base64, mimeType } = await compressImage(selectedFile);
 
-      // Call the serverless API (API key stays on the server)
       const response = await fetch('/api/extract-words', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -67,19 +72,24 @@ const App: React.FC = () => {
 
       if (!response.ok) {
         const errData = await response.json().catch(() => ({}));
-        if (response.status === 429) {
-          throw new Error('QUOTA_EXHAUSTED');
-        }
         throw new Error(errData.error || `Server error (${response.status})`);
       }
 
-      const { words } = await response.json();
+      const data = await response.json();
+      const { words, dictationParagraph: dp } = data;
+
+      // Store dictation paragraph if found
+      if (dp) setDictationParagraph(dp);
 
       if (words && words.length > 0) {
         setVocabList(words);
         setStats({ checked: 0, crossed: 0, total: words.length });
         setCurrentIndex(0);
         setView('game');
+      } else if (dp) {
+        // No vocab words but has dictation — skip to stage 2
+        setDictationParagraph(dp);
+        setView('stage2');
       } else {
         setError("No super-words found! Try a clearer photo with more text. 🔍");
       }
@@ -103,7 +113,8 @@ const App: React.FC = () => {
       if (currentIndex < vocabList.length - 1) {
         setCurrentIndex(prev => prev + 1);
       } else {
-        setView('results');
+        // Stage 1 done — go to stage1-results (which may lead to stage 2)
+        setView('stage1-results');
       }
     } else {
       setStats(prev => ({ ...prev, crossed: prev.crossed + 1 }));
@@ -117,8 +128,21 @@ const App: React.FC = () => {
     setError(null);
     setSelectedFile(null);
     setPreviewUrl(null);
+    setDictationParagraph(null);
+    setDictationScore(null);
     setView('upload');
   };
+
+  // Skip to Stage 2 — use OCR paragraph if available, sample only for testing
+  const skipToStage2 = () => {
+    if (!dictationParagraph) {
+      setDictationParagraph(SAMPLE_DICTATION);
+    }
+    setView('stage2');
+  };
+
+  const masteryPercent = stats.total > 0 ? Math.round((stats.checked / stats.total) * 100) : 0;
+  const canGoToStage2 = dictationParagraph && masteryPercent >= 80;
 
   return (
     <div className="h-[100dvh] flex flex-col overflow-hidden relative">
@@ -208,7 +232,6 @@ const App: React.FC = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {/* Hidden camera input */}
                     <input
                       type="file"
                       accept="image/*"
@@ -217,7 +240,6 @@ const App: React.FC = () => {
                       id="hero-camera"
                       className="hidden"
                     />
-                    {/* Hidden file upload input */}
                     <input
                       type="file"
                       accept="image/*"
@@ -226,7 +248,6 @@ const App: React.FC = () => {
                       className="hidden"
                     />
 
-                    {/* Take Picture — primary */}
                     <label htmlFor="hero-camera" className="cursor-pointer block">
                       <div className="bg-gradient-to-r from-blue-400 to-pink-400 text-white px-8 py-3 rounded-full hero-font text-2xl shadow-xl hover:scale-105 transition-all inline-block border-b-4 border-blue-500 w-full text-center">
                         📷 TAKE PICTURE
@@ -239,7 +260,6 @@ const App: React.FC = () => {
                       <div className="flex-1 h-px bg-gray-200"></div>
                     </div>
 
-                    {/* Upload — secondary */}
                     <label htmlFor="hero-upload" className="cursor-pointer block">
                       <div className="bg-white text-pink-500 px-6 py-2.5 rounded-full hero-font text-xl shadow-md hover:scale-105 transition-all inline-block border-4 border-pink-200 hover:border-pink-300 w-full text-center">
                         📁 UPLOAD IMAGE
@@ -251,15 +271,16 @@ const App: React.FC = () => {
                   </div>
                 )}
               </div>
+
             </div>
           )}
 
-          {/* ========== GAME VIEW ========== */}
+          {/* ========== GAME VIEW (Stage 1) ========== */}
           {view === 'game' && vocabList[currentIndex] && (
             <div className="flex flex-col flex-1">
               <div className="mb-3 flex items-center justify-between bg-white/60 backdrop-blur-sm rounded-xl p-3 shadow-md border-2 border-blue-100 flex-shrink-0">
                 <div>
-                  <h2 className="hero-font text-lg text-pink-500">CURRENT TARGET</h2>
+                  <h2 className="hero-font text-lg text-pink-500">STAGE 1 — SPELLING</h2>
                   <p className="text-gray-500 font-bold text-xs">WORD {currentIndex + 1} OF {vocabList.length}</p>
                 </div>
                 <div className="text-right">
@@ -281,10 +302,155 @@ const App: React.FC = () => {
                   onCross={() => handleDecision(false)}
                 />
               </div>
+
+              {/* Skip to Stage 2 — only when dictation was detected */}
+              {dictationParagraph && (
+                <div className="flex-shrink-0 text-center py-2">
+                  <button
+                    onClick={skipToStage2}
+                    className="bg-purple-100 text-purple-600 font-bold px-6 py-2 rounded-full border-2 border-purple-200 hover:bg-purple-200 hover:scale-105 transition-all text-sm shadow-md"
+                  >
+                    ⏭ SKIP TO STAGE 2 — DICTATION
+                  </button>
+                </div>
+              )}
             </div>
           )}
 
-          {/* ========== RESULTS VIEW ========== */}
+          {/* ========== STAGE 1 RESULTS ========== */}
+          {view === 'stage1-results' && (
+            <div className="text-center bg-white/90 backdrop-blur-sm rounded-[2rem] shadow-2xl p-8 sm:p-12 border-4 border-yellow-200 flex flex-col items-center justify-center flex-1">
+              <span className="text-6xl sm:text-8xl mb-2 block animate-bounce-gentle">
+                {canGoToStage2 ? '🎯' : '🏆'}
+              </span>
+              <h2 className="hero-font text-3xl sm:text-5xl text-yellow-500 mb-2" style={{ textShadow: '2px 2px 0px rgba(0,0,0,0.1)' }}>
+                STAGE 1 COMPLETE!
+              </h2>
+              <p className="text-lg sm:text-xl text-pink-500 mb-2 font-bold">
+                Score: {masteryPercent}% — {stats.checked}/{stats.total} mastered
+              </p>
+
+              <div className="grid grid-cols-2 gap-4 sm:gap-8 mb-6 w-full max-w-xs">
+                <div className="bg-gradient-to-br from-green-50 to-green-100 p-4 rounded-2xl border-4 border-green-200 shadow-md">
+                  <p className="hero-font text-3xl text-green-500">✅ {stats.checked}</p>
+                  <p className="text-green-700 font-bold uppercase text-xs">MASTERED</p>
+                </div>
+                <div className="bg-gradient-to-br from-pink-50 to-pink-100 p-4 rounded-2xl border-4 border-pink-200 shadow-md">
+                  <p className="hero-font text-3xl text-pink-500">💪 {stats.crossed}</p>
+                  <p className="text-pink-700 font-bold uppercase text-xs">ATTEMPTS</p>
+                </div>
+              </div>
+
+              {canGoToStage2 ? (
+                <div className="space-y-3">
+                  <div className="bg-purple-50 rounded-xl p-3 border border-purple-200 mb-2">
+                    <p className="text-purple-700 text-sm font-bold">
+                      🎧 Dictation section detected! Ready for the Final Challenge?
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setView('stage2')}
+                    className="bg-gradient-to-r from-purple-500 to-pink-500 text-white px-8 py-4 rounded-full hero-font text-2xl shadow-xl hover:scale-105 transition-all border-b-4 border-purple-600 animate-pulse"
+                  >
+                    ✍️ STAGE 2: DICTATION →
+                  </button>
+                  <button
+                    onClick={resetSession}
+                    className="block mx-auto text-gray-400 text-xs font-bold underline hover:text-gray-600 mt-2"
+                  >
+                    Skip → New Mission
+                  </button>
+                </div>
+              ) : dictationParagraph && masteryPercent < 80 ? (
+                <div className="space-y-3">
+                  <p className="text-orange-500 text-sm font-bold">
+                    Need 80%+ to unlock Dictation! You got {masteryPercent}%.
+                  </p>
+                  <button
+                    onClick={resetSession}
+                    className="bg-gradient-to-r from-pink-400 via-yellow-400 to-blue-400 text-white px-8 py-4 rounded-full hero-font text-2xl shadow-xl hover:scale-105 transition-all border-b-4 border-pink-500"
+                  >
+                    🚀 TRY AGAIN
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={resetSession}
+                  className="bg-gradient-to-r from-pink-400 via-yellow-400 to-blue-400 text-white px-8 py-4 rounded-full hero-font text-2xl shadow-xl hover:scale-105 transition-all border-b-4 border-pink-500"
+                >
+                  🚀 NEW MISSION
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* ========== STAGE 2 — DICTATION ========== */}
+          {view === 'stage2' && dictationParagraph && (
+            <div className="flex flex-col flex-1 justify-center">
+              <Dictation
+                paragraph={dictationParagraph}
+                onComplete={(score) => {
+                  setDictationScore(score);
+                  setView('mastery');
+                }}
+                onReplay={() => {
+                  // Stay on stage2, Dictation handles internal reset
+                }}
+              />
+            </div>
+          )}
+
+          {/* ========== MASTERY CELEBRATION ========== */}
+          {view === 'mastery' && (
+            <div className="text-center bg-white/90 backdrop-blur-sm rounded-[2rem] shadow-2xl p-8 sm:p-12 border-4 border-yellow-300 flex flex-col items-center justify-center flex-1 relative overflow-hidden">
+              {/* Confetti effect */}
+              <div className="absolute inset-0 pointer-events-none">
+                {Array.from({ length: 30 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="confetti animate-confetti"
+                    style={{
+                      left: `${Math.random() * 100}%`,
+                      top: `${Math.random() * 30}%`,
+                      backgroundColor: ['#fbbf24', '#f472b6', '#60a5fa', '#34d399', '#a78bfa', '#fb923c'][i % 6],
+                      animationDelay: `${Math.random() * 2}s`,
+                      width: `${8 + Math.random() * 12}px`,
+                      height: `${8 + Math.random() * 12}px`,
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div className="relative z-10">
+                <div className="text-8xl mb-4 animate-bounce">🏆</div>
+                <h2 className="hero-font text-4xl sm:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-500 to-purple-600 mb-2">
+                  VOCAB HERO MASTERY!
+                </h2>
+                <p className="text-xl text-gray-600 font-bold mb-2">
+                  Dictation Score: {dictationScore}%
+                </p>
+                <p className="text-lg text-pink-500 mb-6 font-bold">
+                  You've conquered both stages! You are a TRUE VOCAB HERO! 🌟
+                </p>
+
+                <div className="inline-block bg-gradient-to-br from-yellow-100 to-yellow-200 p-6 rounded-2xl border-4 border-yellow-400 shadow-2xl mb-6" style={{ animation: 'hero-glow 2s infinite' }}>
+                  <div className="text-5xl mb-2">🥇</div>
+                  <p className="hero-font text-xl text-yellow-700">MASTER BADGE</p>
+                  <p className="text-yellow-600 text-xs font-bold">Dictation Mastery Achieved</p>
+                </div>
+
+                <br />
+                <button
+                  onClick={resetSession}
+                  className="bg-gradient-to-r from-pink-400 via-yellow-400 to-blue-400 text-white px-8 py-4 rounded-full hero-font text-2xl shadow-xl hover:scale-105 transition-all border-b-4 border-pink-500"
+                >
+                  🚀 NEW MISSION
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* ========== FINAL RESULTS (legacy fallback) ========== */}
           {view === 'results' && (
             <div className="text-center bg-white/90 backdrop-blur-sm rounded-[2rem] shadow-2xl p-8 sm:p-12 border-4 border-yellow-200 flex flex-col items-center justify-center flex-1">
               <span className="text-6xl sm:text-8xl mb-2 block animate-bounce-gentle">🏆</span>
