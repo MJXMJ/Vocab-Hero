@@ -270,12 +270,12 @@ const App: React.FC = () => {
                 )}
               </div>
 
-              {/* Skip to Stage 2 — testing only */}
+              {/* Skip to Stage 2 — for users who completed Stage 1 before */}
               <button
                 onClick={skipToStage2}
-                className="mt-4 text-gray-400 text-xs font-bold underline hover:text-purple-500 transition-colors"
+                className="mt-4 bg-purple-100 text-purple-600 font-bold px-6 py-2 rounded-full border-2 border-purple-200 hover:bg-purple-200 hover:scale-105 transition-all text-sm shadow-md"
               >
-                ⏭ Skip to Stage 2 (Testing)
+                ⏭ SKIP TO STAGE 2 — DICTATION
               </button>
             </div>
           )}

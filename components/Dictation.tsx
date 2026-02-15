@@ -154,10 +154,12 @@ async function speakText(text: string, rate = 0.8): Promise<void> {
         u.rate = rate;
         u.pitch = 1.0;
         u.volume = 1.0;
-        const preferred = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Google') || v.name.includes('Natural')));
-        const fallback = voices.find(v => v.lang.startsWith('en-'));
+        const preferred = voices.find(v => v.lang === 'en-GB' && (v.name.includes('Daniel') || v.name.includes('Google') || v.name.includes('Natural')));
+        const gbFallback = voices.find(v => v.lang === 'en-GB');
+        const anyEn = voices.find(v => v.lang.startsWith('en-'));
         if (preferred) u.voice = preferred;
-        else if (fallback) u.voice = fallback;
+        else if (gbFallback) u.voice = gbFallback;
+        else if (anyEn) u.voice = anyEn;
         u.onend = () => resolve();
         u.onerror = () => resolve();
         window.speechSynthesis.speak(u);
@@ -173,7 +175,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
     const [userInput, setUserInput] = useState('');
     const [diffResult, setDiffResult] = useState<DiffSegment[] | null>(null);
     const [score, setScore] = useState<number | null>(null);
-    const [chunkRepeat, setChunkRepeat] = useState(0); // 0 = first read, 1 = second read
+    const [chunkRepeat, setChunkRepeat] = useState(0); // 0 = first read, 1 = second, 2 = third
     const [chunkPhase, setChunkPhase] = useState<'speaking' | 'waiting'>('speaking');
     const [attempts, setAttempts] = useState(0);
 
@@ -253,9 +255,9 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
 
             const chunk = chunks[ci];
             const wordCount = chunk.split(/\s+/).length;
-            const writingTime = Math.max(10, 10 + wordCount * 1);
+            const writingTime = Math.max(5, 5 + wordCount * 2);
 
-            for (let rep = 0; rep < 2; rep++) {
+            for (let rep = 0; rep < 3; rep++) {
                 if (abortRef.current) return;
 
                 // Wait while paused
@@ -268,8 +270,8 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
                 setChunkRepeat(rep);
                 setChunkPhase('speaking');
 
-                // Speak the chunk (slow for kids) with punctuation read aloud
-                await speakText(addPunctuationSpeech(chunk), 0.4);
+                // Speak the chunk (slow for kids, British English) with punctuation read aloud
+                await speakText(addPunctuationSpeech(chunk), 0.6);
 
                 if (abortRef.current) return;
             }
@@ -288,7 +290,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
     const handleStart = async () => {
         setPhase('playing');
         // Voice encouragement
-        await speakText("Get ready for your dictation challenge! Listen carefully and type what you hear.", 0.7);
+        await speakText("Get ready for your dictation challenge! Listen carefully and type what you hear.", 1.0);
         await waitMs(500);
         runDictation();
     };
@@ -347,7 +349,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
     // Intro voice
     useEffect(() => {
         if (phase === 'intro') {
-            speakText("Amazing job completing Stage One! Now get ready for the Final Dictation Challenge!", 0.7);
+            speakText("Amazing job completing Stage One! Now get ready for the Final Dictation Challenge!", 1.0);
         }
     }, []);
 
@@ -393,7 +395,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
                     <div className="mb-3">
                         <div className="flex justify-between text-xs font-bold text-gray-400 mb-1">
                             <span>Phrase {currentChunk + 1} / {chunks.length}</span>
-                            <span>{chunkRepeat === 0 ? '1st read' : '2nd read'}</span>
+                            <span>{chunkRepeat === 0 ? '1st read' : chunkRepeat === 1 ? '2nd read' : '3rd read'}</span>
                         </div>
                         <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
                             <div

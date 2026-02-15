@@ -95,10 +95,13 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
     utterance.pitch = 1.1;
     utterance.volume = 1.0;
 
-    const preferred = voices.find(v => v.lang.startsWith('en') && (v.name.includes('Samantha') || v.name.includes('Google') || v.name.includes('Natural')));
+    const preferred = voices.find(v => v.lang === 'en-GB' && (v.name.includes('Daniel') || v.name.includes('Google') || v.name.includes('Natural')));
+    const gbFallback = voices.find(v => v.lang === 'en-GB');
     const fallbackEn = voices.find(v => v.lang.startsWith('en-'));
     if (preferred) {
       utterance.voice = preferred;
+    } else if (gbFallback) {
+      utterance.voice = gbFallback;
     } else if (fallbackEn) {
       utterance.voice = fallbackEn;
     }
