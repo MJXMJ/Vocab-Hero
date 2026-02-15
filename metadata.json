@@ -1,0 +1,8 @@
+{
+  "name": "Vocab Hero",
+  "description": "An AI-powered vocabulary learning app for kids that extracts words from images, generates heroic illustrations, and features an AI sensei for guidance.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}
