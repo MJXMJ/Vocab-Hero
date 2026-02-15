@@ -181,6 +181,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
     const [chunkRepeat, setChunkRepeat] = useState(0); // 0 = first read, 1 = second, 2 = third
     const [chunkPhase, setChunkPhase] = useState<'speaking' | 'waiting'>('speaking');
     const [attempts, setAttempts] = useState(0);
+    const [rewardCountdown, setRewardCountdown] = useState<number | null>(null);
 
     const isPausedRef = useRef(false);
     const abortRef = useRef(false);
@@ -320,8 +321,9 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
         if (sc >= 95) {
             playSuccessSound();
             setTimeout(() => playClapSound(), 500);
-            speakText("Incredible! You are a true Vocab Hero! Perfect dictation!", 1.0);
-            onComplete(sc);
+            speakText("Incredible! You scored over 95 percent! You can claim your Mastery Badge!", 1.0);
+            // Start 30s auto-redirect countdown
+            setRewardCountdown(30);
         }
     };
 
@@ -335,6 +337,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
         setDiffResult(null);
         setScore(null);
         setUserInput('');
+        setRewardCountdown(null);
         abortRef.current = true;
         window.speechSynthesis.cancel();
         onReplay();
@@ -348,6 +351,17 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
             if (timerRef.current) clearInterval(timerRef.current);
         };
     }, []);
+
+    // 30s auto-redirect countdown for mastery reward
+    useEffect(() => {
+        if (rewardCountdown === null) return;
+        if (rewardCountdown <= 0) {
+            if (score !== null && score >= 95) onComplete(score);
+            return;
+        }
+        const t = setTimeout(() => setRewardCountdown(prev => prev !== null ? prev - 1 : null), 1000);
+        return () => clearTimeout(t);
+    }, [rewardCountdown, score, onComplete]);
 
     // Intro voice
     useEffect(() => {
@@ -522,29 +536,28 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
 
                     {/* Actions */}
                     {score >= 95 ? (
-                        <div className="text-center">
-                            <div className="text-6xl mb-2 animate-bounce">🏆</div>
-                            <p className="hero-font text-xl text-yellow-600 mb-3">MASTERY BADGE EARNED!</p>
+                        <div className="text-center space-y-3">
+                            <div className="text-5xl mb-1 animate-bounce">🏆</div>
+                            <p className="hero-font text-lg text-yellow-600">95%+ MASTERY ACHIEVED!</p>
+                            <button
+                                onClick={() => onComplete(score)}
+                                className="bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-500 text-white hero-font text-xl px-8 py-3 rounded-full shadow-xl hover:scale-105 active:scale-95 transition-all animate-pulse"
+                            >
+                                🏆 CLAIM MY REWARD!
+                            </button>
+                            {rewardCountdown !== null && (
+                                <p className="text-gray-400 text-xs font-bold">
+                                    Auto-claiming in {rewardCountdown}s...
+                                </p>
+                            )}
                         </div>
                     ) : (
-                        <div className="flex gap-3 w-full">
-                            <button
-                                onClick={handleReplay}
-                                className="flex-1 bg-gradient-to-r from-purple-400 to-pink-500 text-white hero-font text-base py-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all"
-                            >
-                                🔄 TRY AGAIN
-                            </button>
-                            <button
-                                onClick={() => {
-                                    setPhase('writing');
-                                    setDiffResult(null);
-                                    setScore(null);
-                                }}
-                                className="flex-1 bg-white border-2 border-gray-300 text-gray-600 hero-font text-base py-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all"
-                            >
-                                ✏️ EDIT
-                            </button>
-                        </div>
+                        <button
+                            onClick={handleReplay}
+                            className="w-full bg-gradient-to-r from-purple-400 to-pink-500 text-white hero-font text-base py-3 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all"
+                        >
+                            🔄 TRY AGAIN
+                        </button>
                     )}
                 </div>
             )}
