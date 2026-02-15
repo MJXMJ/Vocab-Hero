@@ -113,6 +113,19 @@ function computeDiff(expected: string, userInput: string): { segments: DiffSegme
     return { segments, score };
 }
 
+// ─── Add spoken punctuation to chunk text ───
+function addPunctuationSpeech(text: string): string {
+    // Append spoken punctuation at the end so kids know what to write
+    let spoken = text.trim();
+    if (spoken.endsWith('.')) spoken += ' ... period';
+    else if (spoken.endsWith(',')) spoken += ' ... comma';
+    else if (spoken.endsWith('!')) spoken += ' ... exclamation mark';
+    else if (spoken.endsWith('?')) spoken += ' ... question mark';
+    else if (spoken.endsWith(';')) spoken += ' ... semicolon';
+    else if (spoken.endsWith(':')) spoken += ' ... colon';
+    return spoken;
+}
+
 // ─── TTS using Web Speech API ───
 let voicesLoaded = false;
 let voicesPromise: Promise<SpeechSynthesisVoice[]> | null = null;
@@ -240,7 +253,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
 
             const chunk = chunks[ci];
             const wordCount = chunk.split(/\s+/).length;
-            const writingTime = Math.max(5, 5 + wordCount * 0.5);
+            const writingTime = Math.max(10, 10 + wordCount * 1);
 
             for (let rep = 0; rep < 2; rep++) {
                 if (abortRef.current) return;
@@ -255,8 +268,8 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
                 setChunkRepeat(rep);
                 setChunkPhase('speaking');
 
-                // Speak the chunk
-                await speakText(chunk, 0.8);
+                // Speak the chunk (slow for kids) with punctuation read aloud
+                await speakText(addPunctuationSpeech(chunk), 0.4);
 
                 if (abortRef.current) return;
             }
@@ -275,7 +288,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
     const handleStart = async () => {
         setPhase('playing');
         // Voice encouragement
-        await speakText("Get ready for your dictation challenge! Listen carefully and type what you hear.", 0.9);
+        await speakText("Get ready for your dictation challenge! Listen carefully and type what you hear.", 0.7);
         await waitMs(500);
         runDictation();
     };
@@ -334,7 +347,7 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
     // Intro voice
     useEffect(() => {
         if (phase === 'intro') {
-            speakText("Amazing job completing Stage One! Now get ready for the Final Dictation Challenge!", 0.95);
+            speakText("Amazing job completing Stage One! Now get ready for the Final Dictation Challenge!", 0.7);
         }
     }, []);
 
@@ -422,8 +435,8 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
                     <button
                         onClick={handlePause}
                         className={`w-full mt-3 py-2.5 rounded-xl font-bold text-sm transition-all shadow-md ${isPaused
-                                ? 'bg-gradient-to-r from-green-400 to-green-500 text-white animate-pulse'
-                                : 'bg-white border-2 border-gray-300 text-gray-600 hover:bg-gray-50'
+                            ? 'bg-gradient-to-r from-green-400 to-green-500 text-white animate-pulse'
+                            : 'bg-white border-2 border-gray-300 text-gray-600 hover:bg-gray-50'
                             }`}
                     >
                         {isPaused ? '▶️ RESUME' : '⏸ PAUSE'}
@@ -464,8 +477,8 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
                     {/* Score */}
                     <div className="text-center mb-4">
                         <div className={`inline-block px-6 py-2 rounded-full hero-font text-2xl ${score >= 95 ? 'bg-gradient-to-r from-yellow-300 to-yellow-500 text-yellow-900' :
-                                score >= 80 ? 'bg-gradient-to-r from-green-300 to-green-500 text-green-900' :
-                                    'bg-gradient-to-r from-pink-300 to-pink-500 text-pink-900'
+                            score >= 80 ? 'bg-gradient-to-r from-green-300 to-green-500 text-green-900' :
+                                'bg-gradient-to-r from-pink-300 to-pink-500 text-pink-900'
                             }`}>
                             {score}% {score >= 95 ? '🏆' : score >= 80 ? '👏' : '💪'}
                         </div>
@@ -484,8 +497,8 @@ export const Dictation: React.FC<DictationProps> = ({ paragraph, onComplete, onR
                                 <span
                                     key={i}
                                     className={`px-1 py-0.5 rounded text-sm font-medium ${seg.type === 'correct' ? 'text-gray-800' :
-                                            seg.type === 'wrong' ? 'bg-red-500 text-white line-through' :
-                                                'bg-red-500 text-white italic'
+                                        seg.type === 'wrong' ? 'bg-red-500 text-white line-through' :
+                                            'bg-red-500 text-white italic'
                                         }`}
                                     title={seg.type === 'missing' ? 'Missing word' : seg.type === 'wrong' ? 'Wrong word' : ''}
                                 >

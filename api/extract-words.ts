@@ -8,23 +8,35 @@ export const config = {
     },
 };
 
-const PROMPT = `You are an expert at reading text from images.
+const PROMPT = `You are an expert at reading text from images. Follow these steps VERY carefully:
 
-STEP 1: Carefully read and transcribe ALL visible text from this image.
+STEP 1 — FULL TRANSCRIPTION:
+Read and transcribe EVERY word visible in this image. Do not skip anything.
 
-STEP 2: Check if the image contains a section headed "Dictation" (or "Dictation Passage", "Dictation Test", etc.). If found, extract the FULL paragraph text below that heading VERBATIM — preserve exact wording, punctuation, and capitalization.
+STEP 2 — DICTATION DETECTION:
+Search the transcribed text for the word "Dictation" (case-insensitive). It might appear as:
+- A heading like "Dictation", "Dictation:", "Dictation Passage", "Dictation Test"
+- A label or title anywhere on the page
+- Part of a numbered section like "3. Dictation"
 
-STEP 3: From the transcribed text (excluding the dictation paragraph), identify up to 15 vocabulary words that would be challenging or educational for a child aged 8-14. Only select words that ACTUALLY APPEAR in the image.
+If you find the word "Dictation" anywhere, extract ALL the text that comes AFTER it as the dictation paragraph. Copy it EXACTLY — preserve every word, space, capital letter, and punctuation mark (periods, commas, question marks, exclamation marks, etc.).
 
-Return ONLY a valid JSON object with this structure:
+STEP 3 — VOCABULARY:
+From the remaining text (excluding the dictation paragraph), pick up to 15 challenging vocabulary words for a child aged 8-14. Only use words ACTUALLY visible in the image.
+
+Return ONLY a valid JSON object — no markdown, no backticks, no explanation:
 {
   "words": [
-    { "word": "...", "definition": "...", "example": "...", "difficulty": "Heroic|Legendary|Epic" }
+    { "word": "example", "definition": "a simple definition", "example": "a fun sentence", "difficulty": "Heroic" }
   ],
-  "dictationParagraph": "The full dictation paragraph text here" OR null if no dictation section found
+  "dictationParagraph": "Exact paragraph text here with all punctuation preserved."
 }
 
-Do NOT add words not visible in the image. Return ONLY the JSON object, no other text.`;
+IMPORTANT:
+- If NO dictation section is found, set "dictationParagraph" to null (the JSON keyword, not the string "null").
+- If a dictation section IS found, copy it VERBATIM — every comma, period, and capital letter matters.
+- The "words" array can be empty [] if no suitable vocabulary words are found.
+- Do NOT invent text that is not in the image.`;
 
 async function callGemini(model: string, apiKey: string, base64: string, mimeType: string) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
