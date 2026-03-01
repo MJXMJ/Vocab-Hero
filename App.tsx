@@ -110,14 +110,16 @@ const App: React.FC = () => {
   const handleDecision = (correct: boolean) => {
     if (correct) {
       setStats(prev => ({ ...prev, checked: prev.checked + 1 }));
-      if (currentIndex < vocabList.length - 1) {
-        setCurrentIndex(prev => prev + 1);
-      } else {
-        // Stage 1 done — go to stage1-results (which may lead to stage 2)
-        setView('stage1-results');
-      }
     } else {
       setStats(prev => ({ ...prev, crossed: prev.crossed + 1 }));
+    }
+
+    // Always advance to the next card (or finish) after making a decision
+    if (currentIndex < vocabList.length - 1) {
+      setCurrentIndex(prev => prev + 1);
+    } else {
+      // Stage 1 done — go to stage1-results (which may lead to stage 2)
+      setView('stage1-results');
     }
   };
 
