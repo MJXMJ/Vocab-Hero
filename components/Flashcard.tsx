@@ -249,15 +249,18 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
 
   const handleTryAgain = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onCross();
     resetLocalCardState();
   };
 
-  // Handle mastered button via keyboard (Enter when focused)
+  // Handle mastered/skip button via keyboard (Enter when focused)
   const handleMasteredKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      onCheck();
+      if (isCorrect) {
+        onCheck();
+      } else {
+        onCross();
+      }
     }
   };
 
@@ -422,12 +425,12 @@ export const Flashcard: React.FC<FlashcardProps> = ({ card, onCheck, onCross }) 
           </button>
           <button
             ref={masteredRef}
-            onClick={onCheck}
+            onClick={() => isCorrect ? onCheck() : onCross()}
             onKeyDown={handleMasteredKeyDown}
-            className={`flex-1 border-4 border-white text-white rounded-xl py-3 flex flex-col items-center justify-center shadow-lg transition-all active:scale-95 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-300 ${isCorrect ? 'bg-gradient-to-r from-green-400 to-green-500 animate-pulse' : 'bg-gradient-to-r from-blue-400 to-pink-400'}`}
+            className={`flex-1 border-4 border-white text-white rounded-xl py-3 flex flex-col items-center justify-center shadow-lg transition-all active:scale-95 hover:scale-105 focus:outline-none focus:ring-4 focus:ring-yellow-300 ${isCorrect ? 'bg-gradient-to-r from-green-400 to-green-500 animate-pulse' : 'bg-gradient-to-r from-gray-400 to-gray-500'}`}
           >
-            <span className="text-xl">{isCorrect ? '🎉' : '👍'}</span>
-            <span className="hero-font text-base">MASTERED!</span>
+            <span className="text-xl">{isCorrect ? '🎉' : '⏭️'}</span>
+            <span className="hero-font text-base">{isCorrect ? 'MASTERED!' : 'SKIP WORD'}</span>
             <span className="text-[9px] text-white/70 font-bold mt-0.5">ENTER ↵</span>
           </button>
         </div>
