@@ -22,7 +22,7 @@ Search the transcribed text for the word "Dictation" (case-insensitive). It migh
 If you find the word "Dictation" anywhere, extract ALL the text that comes AFTER it as the dictation paragraph. Copy it EXACTLY — preserve every word, space, capital letter, and punctuation mark (periods, commas, question marks, exclamation marks, etc.).
 
 STEP 3 — VOCABULARY:
-From the remaining text (excluding the dictation paragraph), pick up to 15 challenging vocabulary words for a child aged 8-14. Only use words ACTUALLY visible in the image.
+Locate the "Spelling Words" column in the table or list provided in the image. Extract the vocabulary words EXCLUSIVELY from this "Spelling Words" column. Do not extract words from example sentences, definitions, other columns, or the dictation paragraph. If there is no specific "Spelling Words" column, pick up to 15 challenging vocabulary words from the remaining text. Only use words ACTUALLY visible in the image.
 
 Return ONLY a valid JSON object — no markdown, no backticks, no explanation:
 {
