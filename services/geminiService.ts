@@ -56,7 +56,7 @@ export const playHighQualityTTS = async (text: string) => {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
-            prebuiltVoiceConfig: { voiceName: 'Zephyr' },
+            prebuiltVoiceConfig: { voiceName: 'Aoede' },
           },
         },
       },
@@ -65,7 +65,12 @@ export const playHighQualityTTS = async (text: string) => {
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) return;
 
+    // Safari on iOS often requires AudioContext to be resumed during a user interaction
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+
     const audioBuffer = await decodeAudioData(decode(base64Audio), audioCtx, 24000, 1);
     const source = audioCtx.createBufferSource();
     source.buffer = audioBuffer;
