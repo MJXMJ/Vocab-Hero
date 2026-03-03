@@ -16,6 +16,14 @@ export interface SessionStats {
 
 export type AppView = 'upload' | 'game' | 'stage1-results' | 'stage2' | 'stage2-results' | 'mastery' | 'results';
 
+export interface SavedTestPaper {
+  id: number;
+  testDate: string | null;   // ISO date e.g. "2026-03-03"
+  words: VocabWord[];
+  dictationParagraph: string | null;
+  createdAt: string;
+}
+
 export interface DiffSegment {
   text: string;
   type: 'correct' | 'wrong' | 'missing';
