@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "deploy:vercel": "vite build && npx vercel deploy --prod ./dist",
     "deploy:surge": "vite build && npx surge ./dist vocab-hero-app.surge.sh",
-    "deploy:netlify": "vite build && npx netlify deploy --dir=./dist --prod"
+    "deploy:netlify": "vite build && npx netlify deploy --dir=./dist --prod",
+    "db:setup": "node scripts/setup-db.js"
   },
   "dependencies": {
     "@google/genai": "^1.41.0",
@@ -19,8 +20,11 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.0",
+    "@types/pg": "^8.18.0",
     "@vercel/node": "^5.6.3",
     "@vitejs/plugin-react": "^5.0.0",
+    "dotenv": "^17.3.1",
+    "pg": "^8.19.0",
     "typescript": "~5.8.2",
     "vite": "^6.2.0"
   }
