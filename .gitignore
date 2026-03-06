@@ -5,3 +5,4 @@ dist/
 .env.local
 .env.check
 .DS_Store
+.env*.local
