@@ -24,18 +24,24 @@ If you find the word "Dictation" anywhere, extract ALL the text that comes AFTER
 STEP 3 — VOCABULARY:
 Locate the "Spelling Words" column in the table or list provided in the image. Extract the vocabulary words EXCLUSIVELY from this "Spelling Words" column. Do not extract words from example sentences, definitions, other columns, or the dictation paragraph. If there is no specific "Spelling Words" column, pick up to 15 challenging vocabulary words from the remaining text. Only use words ACTUALLY visible in the image.
 
+STEP 4 — DATE:
+Look for any date on the page that indicates when the spelling test is scheduled (e.g. "Week of March 3, 2026", "Test Date: 03/03/26", "Friday 3rd March", "March 2026" etc.).
+Return the test date as a string in ISO format YYYY-MM-DD. If no date is found, return null.
+
 Return ONLY a valid JSON object — no markdown, no backticks, no explanation:
 {
   "words": [
     { "word": "example", "definition": "a simple definition", "example": "a fun sentence", "difficulty": "Heroic" }
   ],
-  "dictationParagraph": "Exact paragraph text here with all punctuation preserved."
+  "dictationParagraph": "Exact paragraph text here with all punctuation preserved.",
+  "testDate": "2026-03-03"
 }
 
 IMPORTANT:
 - If NO dictation section is found, set "dictationParagraph" to null (the JSON keyword, not the string "null").
 - If a dictation section IS found, copy it VERBATIM — every comma, period, and capital letter matters.
 - The "words" array can be empty [] if no suitable vocabulary words are found.
+- If no test date is visible, set "testDate" to null (the JSON keyword, not the string "null").
 - Do NOT invent text that is not in the image.`;
 
 async function callGemini(model: string, apiKey: string, base64: string, mimeType: string) {
@@ -106,10 +112,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     // Old format: just an array of words
                     wordsArray = data;
                 } else {
-                    // New format: { words: [...], dictationParagraph: "..." }
+                    // New format: { words: [...], dictationParagraph: "...", testDate: "..." }
                     wordsArray = data.words || [];
                     dictationParagraph = data.dictationParagraph || null;
                 }
+
+                const testDate: string | null = Array.isArray(data) ? null : (data.testDate || null);
 
                 const words = wordsArray.map((item: any, index: number) => ({
                     word: item.word || '',
@@ -120,7 +128,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                     mastered: false,
                 }));
 
-                return res.status(200).json({ words, dictationParagraph, model });
+                return res.status(200).json({ words, dictationParagraph, testDate, model });
             }
 
             // Model failed — log and try next
